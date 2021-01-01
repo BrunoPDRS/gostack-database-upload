@@ -1,15 +1,29 @@
 import { Router } from 'express';
-// import { getCustomRepository } from 'typeorm';
+import multer from 'multer';
+import uploadConfig from '../config/upload';
+
+import { getCustomRepository } from 'typeorm';
 
 import TransactionsRepository from '../repositories/TransactionsRepository';
 import CreateTransactionService from '../services/CreateTransactionService';
-// import DeleteTransactionService from '../services/DeleteTransactionService';
-// import ImportTransactionsService from '../services/ImportTransactionsService';
+import DeleteTransactionService from '../services/DeleteTransactionService';
+import ImportTransactionsService from '../services/ImportTransactionsService';
 
 const transactionsRouter = Router();
+const upload = multer(uploadConfig);
 
 transactionsRouter.get('/', async (request, response) => {
-  // TODO
+  const transactionsRepo = getCustomRepository(TransactionsRepository);
+
+  const transactions = await transactionsRepo.find();
+  const balance = await transactionsRepo.getBalance();
+
+  const transactionsData = {
+    transactions,
+    balance,
+  };
+
+  return response.json(transactionsData);
 });
 
 transactionsRouter.post('/', async (request, response) => {
@@ -27,11 +41,22 @@ transactionsRouter.post('/', async (request, response) => {
 });
 
 transactionsRouter.delete('/:id', async (request, response) => {
-  // TODO
+  const deleteTransaction = new DeleteTransactionService();
+  const id = request.params.id;
+
+  const deleted = deleteTransaction.execute(id);
+
+  return response.json(deleted);
 });
 
-transactionsRouter.post('/import', async (request, response) => {
-  // TODO
+transactionsRouter.post('/import', upload.single('data'), async (request, response) => {
+  const importTransactions = new ImportTransactionsService();
+
+  const newTransactions = await importTransactions.execute({
+    fileName: request.file.filename,
+  });
+
+  return newTransactions;
 });
 
 export default transactionsRouter;
