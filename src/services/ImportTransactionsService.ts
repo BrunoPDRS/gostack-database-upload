@@ -1,4 +1,3 @@
-import { getCustomRepository } from 'typeorm';
 import Transaction from '../models/Transaction';
 
 import csvParse from 'csv-parse';
@@ -6,49 +5,46 @@ import fs from 'fs';
 import path from 'path';
 import CreateTransactionService from './CreateTransactionService';
 
-interface Request {
-  fileName: string;
+interface CSV {
+  title: string;
+  type: 'income' | 'outcome';
+  value: number;
+  category: string;
 }
 
 class ImportTransactionsService {
-  async execute({ fileName }: Request): Promise<Transaction[]> {
+  async execute(filePath: string): Promise<Transaction[]> {
     const createTransaction = new CreateTransactionService();
 
-    const csvPath = path.resolve(__dirname, '..', '..', 'tmp', fileName);
-
-    const readCSV = fs.createReadStream(csvPath);
+    const readCSV = fs.createReadStream(filePath);
 
     const parseStream = csvParse({
       from_line: 2,
-      ltrim: true,
-      rtrim: true,
     });
 
     const parseCSV = readCSV.pipe(parseStream);
 
+    const transactData: CSV[] = [];
+
     const transactions: Transaction[] = [];
 
-    await new Promise(resolve => {
-      parseCSV.on('data', async transaction => {
-        const [title, type, value, category] = transaction;
+    parseCSV.on('data', async transaction => {
+      const [title, type, value, category] = transaction.map(
+        (cell: string) => cell.trim(),
+      );
 
-        const transObject = {
-          title,
-          type,
-          value,
-          category,
-        };
+      if (!title || !type || !value) return;
 
-        const createdTransaction = await createTransaction.execute(transObject);
-
-        transactions.push(createdTransaction);
-      })
+      transactData.push({ title, type, value, category });
     });
 
-    await new Promise(resolve => {
-      parseCSV.on('end', resolve);
-    });
+    await new Promise(resolve => parseCSV.on('end', resolve));
 
+    for (const transaction of transactData) {
+      const createdTransact = await createTransaction.execute(transaction);
+      transactions.push(createdTransact);
+    }
+    
     return transactions;
   }
 }
