@@ -15,7 +15,7 @@ interface TransactionDataDTO {
 
 class CreateTransactionService {
   public async execute({ title, value, type, category }: TransactionDataDTO): Promise<Transaction> {
-    const transactionRepository = getCustomRepository(TransactionRepository);
+    const transactionRepository = getRepository(Transaction);
     const categoryRepository = getRepository(Category);
 
     const categoryObject = await categoryRepository.findOne(
